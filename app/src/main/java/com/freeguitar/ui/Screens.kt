@@ -3,6 +3,10 @@ package com.freeguitar.ui
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateTo
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -239,6 +246,8 @@ fun SongPlayerScreen(song: Song, onBack: () -> Unit) {
     var chordIndex by remember { mutableStateOf(0) }
     var lastGood by remember { mutableStateOf(false) }
     var goodCount by remember { mutableStateOf(0) }
+    val anim = remember { Animatable(0f) }
+    val totalProgressionBeats = remember(song) { song.chordProgression.sumOf { it.second }.toFloat() }
 
     val beatMs = (60000.0 / song.bpm).toLong()
 
@@ -273,7 +282,21 @@ fun SongPlayerScreen(song: Song, onBack: () -> Unit) {
         }
     }
 
-    val chord = Chords.byName(song.chordAtBeat(beat))
+    LaunchedEffect(playing, beatMs, totalProgressionBeats) {
+        if (playing) {
+            while (true) {
+                anim.snapTo(0f)
+                anim.animateTo(totalProgressionBeats, animationSpec = tween((totalProgressionBeats * beatMs).toInt()))
+            }
+        }
+    }
+
+    val progressStart = (anim.value - (anim.value % totalProgressionBeats) + totalProgressionBeats) % totalProgressionBeats
+    val idx = song.indexAtBeat(progressStart.toInt())
+    val chordName = song.chordProgression[idx].first
+    val curProgress = progressStart - song.chordProgression.take(idx).sumOf { it.second.toDouble() }.toFloat()
+    val curBeats = song.chordProgression[idx].second.toFloat()
+    val chord = Chords.byName(chordName)
     val barBeat = beat % song.timeSignature
 
     Column(
@@ -291,17 +314,26 @@ fun SongPlayerScreen(song: Song, onBack: () -> Unit) {
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
 
-        if (chord != null) {
-            ChordDiagram(chord, Modifier.fillMaxWidth())
+        val activeChord = chord ?: Chords.byName(chordName)
+        if (activeChord != null) {
+            FallingFretboard(
+                chord = activeChord,
+                progress = (curProgress / curBeats).coerceIn(0f, 1f),
+                isMatch = lastGood,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp)
+            )
+            Spacer(Modifier.height(10.dp))
             Text(
-                chord.name,
-                style = MaterialTheme.typography.displayLarge,
+                chordName,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
                 color = if (lastGood) Color(0xFF2ECC71) else MaterialTheme.colorScheme.primary
             )
-            Text(chord.fullName, style = MaterialTheme.typography.titleMedium)
+            Text(activeChord.fullName, style = MaterialTheme.typography.titleMedium)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -373,6 +405,87 @@ fun SongPlayerScreen(song: Song, onBack: () -> Unit) {
                 .height(56.dp)
         ) {
             Text(if (playing) "Pause" else "Start", fontSize = 20.sp)
+        }
+    }
+}
+
+@Composable
+fun FallingFretboard(
+    chord: GuitarChord,
+    progress: Float,
+    isMatch: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val surfaceBand = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    val stringColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    val lineColor = if (isMatch) Color(0xFF2ECC71) else MaterialTheme.colorScheme.outline
+    val targetGlow = if (isMatch) Color(0xFF2ECC71) else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    val gemColor = if (isMatch) Color(0xFF2ECC71) else MaterialTheme.colorScheme.primary
+
+    Canvas(modifier = modifier.clip(RoundedCornerShape(16.dp))) {
+        val w = size.width
+        val h = size.height
+
+        val targetY = h * 0.80f
+        val minFret = chord.frets.filter { it > 0 }.minOrNull() ?: 1
+        val fretSpan = (chord.frets.filter { it > 0 }.maxOrNull() ?: minFret) - minFret
+        val bandH = h * 0.42f
+        val bandTop = targetY - bandH - progress * h * 0.60f
+
+        drawRoundRect(
+            color = surfaceBand,
+            topLeft = Offset(0f, bandTop),
+            size = Size(w, bandH),
+            cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+        )
+
+        for (s in 0..5) {
+            val x = w * (s + 0.5f) / 6f
+            drawLine(
+                color = stringColor,
+                start = Offset(x, 0f),
+                end = Offset(x, h),
+                strokeWidth = if (s == 2 || s == 3) 2.dp.toPx() else 1.dp.toPx()
+            )
+        }
+
+        drawLine(
+            color = lineColor,
+            start = Offset(0f, targetY),
+            end = Offset(w, targetY),
+            strokeWidth = 2.dp.toPx()
+        )
+        for (s in 0..5) {
+            val x = w * (s + 0.5f) / 6f
+            drawCircle(
+                color = targetGlow,
+                radius = 10.dp.toPx(),
+                center = Offset(x, targetY)
+            )
+        }
+
+        for (s in 0..5) {
+            val fret = chord.frets[s]
+            if (fret >= 0) {
+                val x = w * (s + 0.5f) / 6f
+                val noteY = if (fret == 0) bandTop + bandH * 0.06f
+                else bandTop + (fret - minFret + 0.5f) / (fretSpan + 1) * bandH
+                drawCircle(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    radius = 15.dp.toPx(),
+                    center = Offset(x, noteY)
+                )
+                drawCircle(
+                    color = gemColor,
+                    radius = 13.dp.toPx(),
+                    center = Offset(x, noteY)
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = 3.dp.toPx(),
+                    center = Offset(x - 4.dp.toPx(), noteY - 4.dp.toPx())
+                )
+            }
         }
     }
 }
