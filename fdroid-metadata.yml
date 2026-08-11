@@ -1,0 +1,44 @@
+# Free Guitar — F-Droid build recipe
+#
+# When you submit to F-Droid, this file goes into their `fdroiddata`
+# repository as metadata/com.freeguitar.yml. The values below are what
+# F-Droid's build server will use to build, sign, and publish your app.
+
+Categories:
+  - Music
+  - Audio
+License: Apache-2.0
+AuthorName: Free Guitar
+WebSite: https://github.com/YOUR_USERNAME/FreeGuitar
+SourceCode: https://github.com/YOUR_USERNAME/FreeGuitar
+IssueTracker: https://github.com/YOUR_USERNAME/FreeGuitar/issues
+Changelog: https://github.com/YOUR_USERNAME/FreeGuitar/releases
+Donate: https://github.com/sponsors/YOUR_USERNAME
+
+AutoName: Free Guitar
+Summary: Learn guitar chords and songs with your real guitar
+Description: |
+  Free Guitar is a free, open-source guitar learning app. It listens to
+  your real guitar through the microphone and tells you when you play the
+  right chord. Includes:
+  - A tuner for all six strings (real-time pitch detection)
+  - A chord library with diagrams and playback for 19+ chords
+  - Play-along songs with real-time chord matching (17+ songs built in)
+  - A metronome for timing practice
+  - Optional auto-updates: new songs can be fetched from any free JSON URL
+  - No ads, no tracking, no payments — ever
+
+RepoType: git
+Repo: https://github.com/YOUR_USERNAME/FreeGuitar
+
+Builds:
+  - versionName: '1.0'
+    versionCode: 1
+    commit: v1.0
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: '1.0'
+CurrentVersionCode: 1

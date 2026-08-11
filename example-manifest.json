@@ -1,0 +1,26 @@
+{
+  "app": {
+    "versionCode": 2,
+    "versionName": "1.1",
+    "apkUrl": "https://example.com/free-guitar/free-guitar-1.1.apk",
+    "notes": "Bug fixes and new songs."
+  },
+  "songs": [
+    {
+      "title": "Free Falling",
+      "artist": "Tom Petty",
+      "bpm": 84,
+      "timeSignature": 4,
+      "strum": "↓ ↓ ↑ ↓ ↑",
+      "progression": [
+        { "chord": "D", "beats": 4 },
+        { "chord": "Dm", "beats": 4 },
+        { "chord": "A", "beats": 4 },
+        { "chord": "A", "beats": 4 },
+        { "chord": "G", "beats": 4 },
+        { "chord": "A", "beats": 4 },
+        { "chord": "A", "beats": 4 }
+      ]
+    }
+  ]
+}
