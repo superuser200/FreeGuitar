@@ -7,7 +7,7 @@ object UpdatePrefs {
     private const val KEY_URL = "manifest_url"
     private const val KEY_AUTO = "auto_check"
 
-    const val DEFAULT_URL = "https://example.com/free-guitar/manifest.json"
+    const val DEFAULT_URL = "https://raw.githubusercontent.com/superuser200/FreeGuitar/main/manifest.json"
 
     fun getUrl(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
