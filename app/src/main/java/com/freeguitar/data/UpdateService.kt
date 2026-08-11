@@ -95,25 +95,96 @@ object UpdateService {
         }
     }
 
-    /** Downloads the APK to cache and returns the file, or null on failure. */
-    fun downloadApk(url: String, cacheDir: File): File? {
+    private const val FILE_NAME = "free-guitar-update.apk"
+    private const val PART_FILE_NAME = "free-guitar-update.apk.part"
+    private const val META_FILE_NAME = "free-guitar-update.apk.meta"
+
+    sealed class DownloadResult {
+        data class Progress(val doneBytes: Long, val totalBytes: Long) : DownloadResult()
+        data class Paused(val doneBytes: Long, val totalBytes: Long) : DownloadResult()
+        object Success : DownloadResult()
+        object Failed : DownloadResult()
+    }
+
+    /** Mutable pause flag. Set [paused] to true from any thread to stop the download. */
+    class PauseFlags {
+        @Volatile var paused: Boolean = false
+    }
+
+    /** State of a partially-downloaded update file. */
+    data class PartialState(val doneBytes: Long, val totalBytes: Long)
+
+    /** Returns info about an in-progress partial download, or null if none exists. */
+    fun partialState(cacheDir: File): PartialState? {
+        val part = File(cacheDir, PART_FILE_NAME)
+        if (!part.exists() || part.length() <= 0) return null
+        val total = try { File(cacheDir, META_FILE_NAME).readText().trim().toLong() } catch (e: Exception) { 0L }
+        return PartialState(part.length(), total)
+    }
+
+    /**
+     * Downloads (or resumes) the APK. Existing partial data is continued using an
+     * HTTP Range request. Returns [DownloadResult.Paused] when cancelled via
+     * [flags] so the partial file can be resumed later.
+     */
+    fun resumeDownload(url: String, cacheDir: File, flags: PauseFlags): DownloadResult {
         return try {
+            val part = File(cacheDir, PART_FILE_NAME)
+            val meta = File(cacheDir, META_FILE_NAME)
+            val startBytes = if (part.exists()) part.length() else 0L
+
             val conn = URL(url).openConnection() as HttpURLConnection
             conn.connectTimeout = 30000
             conn.readTimeout = 30000
             conn.requestMethod = "GET"
-            if (conn.responseCode != 200) {
+            if (startBytes > 0) conn.setRequestProperty("Range", "bytes=$startBytes-")
+            if (conn.responseCode != 200 && conn.responseCode != 206) {
                 conn.disconnect()
-                return null
+                return DownloadResult.Failed
             }
-            val out = File(cacheDir, "free-guitar-update.apk")
+
+            val totalBytes = if (conn.responseCode == 206 && conn.contentLength > 0) {
+                startBytes + conn.contentLength
+            } else {
+                conn.contentLength.toLong()
+            }
+            if (totalBytes <= 0) {
+                conn.disconnect()
+                return DownloadResult.Failed
+            }
+
+            if (totalBytes > 0) meta.writeText(totalBytes.toString())
+
+            var doneBytes = startBytes
+            val buffer = ByteArray(64 * 1024)
             conn.inputStream.use { input ->
-                FileOutputStream(out).use { output -> input.copyTo(output) }
+                FileOutputStream(part, true).use { output ->
+                    var n: Int
+                    while (input.read(buffer).also { n = it } != -1) {
+                        if (n > 0) {
+                            output.write(buffer, 0, n)
+                            doneBytes += n
+                        }
+                        if (flags.paused) {
+                            output.flush()
+                            conn.disconnect()
+                            return DownloadResult.Paused(doneBytes, totalBytes)
+                        }
+                    }
+                }
             }
             conn.disconnect()
-            if (out.length() > 1000) out else null
+
+            if (doneBytes >= totalBytes && doneBytes > 1000) {
+                val final = File(cacheDir, FILE_NAME)
+                part.renameTo(final)
+                meta.delete()
+                DownloadResult.Success
+            } else {
+                DownloadResult.Failed
+            }
         } catch (e: Exception) {
-            null
+            DownloadResult.Failed
         }
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -51,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import com.freeguitar.audio.AudioEngine
 import com.freeguitar.audio.ChordMatcher
 import com.freeguitar.audio.ChordPlayer
@@ -531,6 +533,10 @@ fun UpdatesScreen() {
     var manifest by remember { mutableStateOf<UpdateService.Manifest?>(null) }
     var installedSongs by remember { mutableStateOf(SongStore.load(context)) }
     var downloadingApk by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf<UpdateService.DownloadResult.Progress?>(null) }
+    var partial by remember { mutableStateOf(UpdateService.partialState(context.cacheDir)) }
+    var pauseFlags by remember { mutableStateOf<UpdateService.PauseFlags?>(null) }
+    var finalizing by remember { mutableStateOf(false) }
 
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionCode }
 
@@ -638,41 +644,94 @@ fun UpdatesScreen() {
                             Text(app.notes, style = MaterialTheme.typography.bodySmall)
                         }
                         Spacer(Modifier.height(12.dp))
+                        if (partial != null || downloadProgress != null) {
+                            val progress = (downloadProgress?.doneBytes ?: partial?.doneBytes ?: 0L).toFloat()
+                            val total = (downloadProgress?.totalBytes ?: partial?.totalBytes ?: 1L).toFloat()
+                            val frac = if (total > 0f) (progress / total).coerceIn(0f, 1f) else 0f
+                            LinearProgressIndicator(progress = frac, modifier = Modifier.fillMaxWidth())
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Downloaded ${formatBytes(progress.toLong())} of ${formatBytes(total.toLong())}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
                         Button(
                             onClick = {
-                                downloadingApk = true
-                                scope.launch {
-                                    val file = withContext(Dispatchers.IO) {
-                                        UpdateService.downloadApk(app.apkUrl, context.cacheDir)
-                                    }
+                                if (downloadingApk) {
+                                    pauseFlags?.paused = true
                                     downloadingApk = false
-                                    if (file != null) {
-                                        try {
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                                setDataAndType(
-                                                    androidx.core.content.FileProvider.getUriForFile(
-                                                        context,
-                                                        "${context.packageName}.fileprovider",
-                                                        file
-                                                    ),
-                                                    "application/vnd.android.package-archive"
-                                                )
-                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            }
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            message = "Install failed. Enable 'Install unknown apps' for this app in Settings."
+                                } else {
+                                    val flags = UpdateService.PauseFlags()
+                                    pauseFlags = flags
+                                    finalizing = false
+                                    downloadingApk = true
+                                    downloadProgress = null
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            UpdateService.resumeDownload(app.apkUrl, context.cacheDir, flags)
                                         }
-                                    } else {
-                                        message = "Download failed."
+                                        when (result) {
+                                            is UpdateService.DownloadResult.Progress -> {
+                                                downloadProgress = result
+                                            }
+                                            is UpdateService.DownloadResult.Paused -> {
+                                                downloadingApk = false
+                                                partial = UpdateService.partialState(context.cacheDir)
+                                                downloadProgress = null
+                                                message = "Download paused. Tap Resume to continue."
+                                            }
+                                            UpdateService.DownloadResult.Success -> {
+                                                downloadingApk = false
+                                                finalizing = false
+                                                partial = null
+                                                downloadProgress = null
+                                                pauseFlags = null
+                                                val file = File(context.cacheDir, "free-guitar-update.apk")
+                                                if (file.exists()) {
+                                                    try {
+                                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                            setDataAndType(
+                                                                androidx.core.content.FileProvider.getUriForFile(
+                                                                    context,
+                                                                    "${context.packageName}.fileprovider",
+                                                                    file
+                                                                ),
+                                                                "application/vnd.android.package-archive"
+                                                            )
+                                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        }
+                                                        context.startActivity(intent)
+                                                    } catch (e: Exception) {
+                                                        message = "Install failed. Enable 'Install unknown apps' for this app in Settings."
+                                                    }
+                                                }
+                                            }
+                                            UpdateService.DownloadResult.Failed -> {
+                                                downloadingApk = false
+                                                finalizing = false
+                                                partial = UpdateService.partialState(context.cacheDir)
+                                                downloadProgress = null
+                                                pauseFlags = null
+                                                message = "Download failed. Try again — it will resume from where it stopped."
+                                            }
+                                        }
                                     }
                                 }
                             },
-                            enabled = !downloadingApk,
+                            enabled = !finalizing,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (downloadingApk) "Downloading..." else "Download & Install Update")
+                            val progress = downloadProgress?.doneBytes ?: partial?.doneBytes ?: 0L
+                            val total = downloadProgress?.totalBytes ?: partial?.totalBytes ?: 1L
+                            val pct = if (total > 0) (progress * 100 / total).toInt() else 0
+                            when {
+                                downloadingApk -> Text("Pause  ($pct%)")
+                                partial != null && !finalizing -> Text("Resume Download ($pct%)")
+                                else -> Text("Download & Install Update")
+                            }
                         }
                     }
                 }
@@ -699,4 +758,10 @@ fun UpdatesScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes >= 1024 * 1024) return "%.1f MB".format(bytes / (1024.0 * 1024.0))
+    if (bytes >= 1024) return "%.0f KB".format(bytes / 1024.0)
+    return "$bytes B"
 }
