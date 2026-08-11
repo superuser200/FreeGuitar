@@ -1,9 +1,9 @@
 {
   "app": {
-    "versionCode": 2,
-    "versionName": "1.1",
-    "apkUrl": "https://github.com/superuser200/FreeGuitar/releases/download/v1.1/app-debug.apk",
-    "notes": "Improved song player with strum sound, better tuner, chord timeline, and faster updates."
+    "versionCode": 3,
+    "versionName": "1.2",
+    "apkUrl": "https://github.com/superuser200/FreeGuitar/releases/download/v1.2/app-debug.apk",
+    "notes": "Update downloads can now be paused and resumed with a progress bar. If a download stops, just tap Resume and it continues from where it left off."
   },
   "songs": [
     {
