@@ -9,11 +9,11 @@ Categories:
   - Audio
 License: Apache-2.0
 AuthorName: Free Guitar
-WebSite: https://github.com/YOUR_USERNAME/FreeGuitar
-SourceCode: https://github.com/YOUR_USERNAME/FreeGuitar
-IssueTracker: https://github.com/YOUR_USERNAME/FreeGuitar/issues
-Changelog: https://github.com/YOUR_USERNAME/FreeGuitar/releases
-Donate: https://github.com/sponsors/YOUR_USERNAME
+WebSite: https://github.com/superuser200/FreeGuitar
+SourceCode: https://github.com/superuser200/FreeGuitar
+IssueTracker: https://github.com/superuser200/FreeGuitar/issues
+Changelog: https://github.com/superuser200/FreeGuitar/releases
+Donate: https://github.com/sponsors/superuser200
 
 AutoName: Free Guitar
 Summary: Learn guitar chords and songs with your real guitar
@@ -29,7 +29,7 @@ Description: |
   - No ads, no tracking, no payments — ever
 
 RepoType: git
-Repo: https://github.com/YOUR_USERNAME/FreeGuitar
+Repo: https://github.com/superuser200/FreeGuitar
 
 Builds:
   - versionName: '1.0'
