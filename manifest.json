@@ -1,0 +1,39 @@
+{
+  "app": {
+    "versionCode": 2,
+    "versionName": "1.1",
+    "apkUrl": "https://github.com/superuser200/FreeGuitar/releases/download/v1.1/app-debug.apk",
+    "notes": "Improved song player with strum sound, better tuner, chord timeline, and faster updates."
+  },
+  "songs": [
+    {
+      "title": "Free Falling",
+      "artist": "Tom Petty",
+      "bpm": 84,
+      "timeSignature": 4,
+      "strum": "↓ ↓ ↑ ↓ ↑",
+      "progression": [
+        { "chord": "D", "beats": 4 },
+        { "chord": "Dm", "beats": 4 },
+        { "chord": "A", "beats": 4 },
+        { "chord": "A", "beats": 4 },
+        { "chord": "G", "beats": 4 },
+        { "chord": "A", "beats": 4 },
+        { "chord": "A", "beats": 4 }
+      ]
+    },
+    {
+      "title": "Bad Moon Rising",
+      "artist": "Creedence Clearwater Revival",
+      "bpm": 116,
+      "timeSignature": 4,
+      "strum": "↓ ↓ ↑ ↓ ↑",
+      "progression": [
+        { "chord": "D", "beats": 4 },
+        { "chord": "A", "beats": 4 },
+        { "chord": "G", "beats": 4 },
+        { "chord": "D", "beats": 4 }
+      ]
+    }
+  ]
+}
