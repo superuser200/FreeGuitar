@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -188,21 +190,28 @@ fun ChordDetailScreen(chord: GuitarChord, onBack: () -> Unit) {
 fun SongListScreen(onSongClick: (Song) -> Unit) {
     val context = LocalContext.current
     val allSongs = remember { Songs.all + SongStore.load(context) }
-    Column(Modifier.padding(12.dp)) {
-        Text(
-            "Play-along songs",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-        )
-        Text(
-            "Tune your guitar and hold each chord while you strum. The app listens and tells you when you hit the right note.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        )
-        Spacer(Modifier.height(12.dp))
-        for (song in allSongs) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(12.dp)
+    ) {
+        item {
+            Column {
+                Text(
+                    "Play-along songs",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                )
+                Text(
+                    "Tune your guitar and hold each chord while you strum. The app listens and tells you when you hit the right note.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+        lazyItems(allSongs) { song ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
